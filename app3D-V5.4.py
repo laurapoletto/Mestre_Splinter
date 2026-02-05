@@ -67,17 +67,6 @@ class BancoDeDados:
             )
         """)
 
-        # --- TABELA RESINAS ---
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS resinas (
-                id SERIAL PRIMARY KEY,
-                marca TEXT NOT NULL,
-                tipo TEXT NOT NULL,   -- Ex: Standard, ABS-Like, Water Washable
-                cor TEXT,
-                volume_ml INTEGER,    -- Volume restante em ml
-                obs TEXT
-            )
-        """)
         
         # Se você já rodou o código antes, vamos garantir que as colunas novas existam
         # (Isso evita erro se a tabela já existir)
@@ -230,28 +219,6 @@ class BancoDeDados:
         conn.commit()
         conn.close()
 
-    # --- FUNÇÕES DE RESINA ---
-    def buscar_resinas(self):
-        try:
-            conn = self.conectar()
-            cursor = conn.cursor()
-            # Verifique se o nome da tabela é 'resinas' mesmo
-            cursor.execute("SELECT id, marca, tipo, cor, quantidade_ml, quantidade_gasta FROM resinas ORDER BY id DESC")
-            dados = cursor.fetchall()
-            conn.close()
-            return dados
-        except Exception as e:
-            print(f"Erro ao buscar resinas: {e}")
-            return []
-
-    def adicionar_resina(self, marca, tipo, cor, ml, gasto=0.0):
-        conn = self.conectar()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO resinas (marca, tipo, cor, quantidade_ml, quantidade_gasta) VALUES (%s, %s, %s, %s, %s)",
-                       (marca, tipo, cor, ml, gasto))
-        conn.commit()
-        conn.close()
-
 # --- INTERFACE GRÁFICA ---
 class App3D(ctk.CTk):
     def __init__(self):
@@ -299,9 +266,6 @@ class App3D(ctk.CTk):
 
         self.botoes_menu["estoque"] = ctk.CTkButton(self.sidebar, text="📦     Filamentos", command=self.show_estoque, **btn_estilo)
         self.botoes_menu["estoque"].grid(row=3, column=0, padx=20, pady=5, sticky="ew")
-
-        self.botoes_menu["resinas"] = ctk.CTkButton(self.sidebar, text="💧      Resinas", command=self.show_resinas, **btn_estilo)
-        self.botoes_menu["resinas"].grid(row=4, column=0, padx=20, pady=5, sticky="ew")
 
         self.botoes_menu["impressoras"] = ctk.CTkButton(self.sidebar, text="🖨️Impressoras", command=self.show_impressoras, **btn_estilo)
         self.botoes_menu["impressoras"].grid(row=5, column=0, padx=20, pady=5, sticky="ew")
@@ -373,80 +337,6 @@ class App3D(ctk.CTk):
         self.lista_frame = ctk.CTkScrollableFrame(self.main_frame, height=450, corner_radius=RAIO_CANTO)
         self.lista_frame.pack(fill="both", expand=True, pady=20)
         self.carregar_lista_estoque()
-
-    def show_resinas(self):
-        self.atualizar_destaque_menu("resinas")
-        self.limpar_area_principal()
-
-        header = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 20))
-        ctk.CTkLabel(header, text="Estoque de Resinas", font=("Roboto", 28, "bold")).pack(side="left")
-
-        # Barra de Adição Rápida
-        input_frame = ctk.CTkFrame(self.main_frame, fg_color="#1a1a1a")
-        input_frame.pack(fill="x", padx=5, pady=10)
-
-        self.combo_marca_r = ctk.CTkComboBox(input_frame, values=["Anycubic", "Elegoo", "Siraya Tech", "+ Adicionar Novo"], 
-                                            command=lambda e: self.lidar_com_novo_valor(e, self.combo_marca_r, "Marca"), width=140)
-        self.combo_marca_r.set("Marca")
-        self.combo_marca_r.pack(side="left", padx=5, pady=10)
-
-        self.combo_tipo_r = ctk.CTkComboBox(input_frame, values=["Standard", "ABS-Like", "Washable", "Plant-Based"], 
-                                           command=lambda e: self.lidar_com_novo_valor(e, self.combo_tipo_r, "Tipo"), width=140)
-        self.combo_tipo_r.set("Tipo")
-        self.combo_tipo_r.pack(side="left", padx=5, pady=10)
-
-        self.combo_cor_r = ctk.CTkComboBox(input_frame, values=["Cinza", "Transparente", "Preto", "Branco"], 
-                                          command=lambda e: self.lidar_com_novo_valor(e, self.combo_cor_r, "Cor"), width=120)
-        self.combo_cor_r.set("Cor")
-        self.combo_cor_r.pack(side="left", padx=5, pady=10)
-
-        self.combo_ml_r = ctk.CTkComboBox(input_frame, values=["500 ml", "1000 ml"], width=100)
-        self.combo_ml_r.set("Qtd (ml)")
-        self.combo_ml_r.pack(side="left", padx=5, pady=10)
-
-        ctk.CTkButton(input_frame, text="+ Adicionar", width=100, fg_color="#2ecc71", 
-                      command=self.salvar_resina).pack(side="right", padx=10)
-
-        # Listagem
-        scroll = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        scroll.pack(fill="both", expand=True)
-
-        resinas = self.db.buscar_resinas()
-        for r in resinas:
-            id_r, marca, tipo, cor, total, gasto = r
-            restante = max(0, total - gasto)
-            porcentagem = (restante / total)
-            cor_barra = "#2ecc71" if porcentagem > 0.3 else "#e67e22" if porcentagem > 0.1 else "#e74c3c"
-
-            row = ctk.CTkFrame(scroll, fg_color="#2b2b2b", height=45)
-            row.pack(fill="x", pady=2, padx=5)
-
-            ctk.CTkLabel(row, text=f"{marca} {tipo}", width=180, anchor="w", font=("Roboto", 13, "bold")).pack(side="left", padx=15)
-            ctk.CTkLabel(row, text=cor, width=100, anchor="w", text_color="gray").pack(side="left", padx=5)
-            
-            pb = ctk.CTkProgressBar(row, width=150)
-            pb.set(porcentagem)
-            pb.configure(progress_color=cor_barra)
-            pb.pack(side="left", padx=10)
-
-            ctk.CTkLabel(row, text=f"{int(restante)} / {int(total)} ml", width=120).pack(side="left", padx=10)
-            
-            # Botão de opções (Kebab)
-            ctk.CTkButton(row, text="⋮", width=30, fg_color="transparent", font=("", 18),
-                          command=lambda i=id_r: self.abrir_menu_estoque(i, "resinas")).pack(side="right", padx=10)
-
-    def salvar_resina(self):
-        try:
-            m = self.combo_marca_r.get()
-            t = self.combo_tipo_r.get()
-            c = self.combo_cor_r.get()
-            ml = float(self.combo_ml_r.get().replace(" ml", ""))
-            
-            self.db.adicionar_resina(m, t, c, ml)
-            self.show_resinas()
-        except:
-            messagebox.showwarning("Erro", "Preencha os dados corretamente!")
 
     # --- TELA DAS IMPRESSORAS (ATUALIZADA) ---
     def show_impressoras(self):
@@ -617,7 +507,7 @@ class App3D(ctk.CTk):
         frame_tec = ctk.CTkFrame(win, fg_color="transparent")
         frame_tec.pack(pady=5)
         
-        combo_impressora = ctk.CTkOptionMenu(frame_tec, values=["X1 Carbon", "H2D", "Resina", "Outra"], width=140)
+        combo_impressora = ctk.CTkOptionMenu(frame_tec, values=["X1 Carbon", "H2D", "Form 4L", "Outra"], width=140)
         combo_impressora.pack(side="left", padx=5)
         
         # Carrega filamentos para o combo
@@ -803,65 +693,7 @@ class App3D(ctk.CTk):
             ctk.CTkLabel(win, text="Nenhum arquivo .step anexado", text_color="gray").pack(pady=20)
             
         ctk.CTkButton(win, text="Fechar", fg_color="transparent", border_width=1, 
-                      command=win.destroy).pack(pady=5)   
-
-    
-    def show_resinas(self):
-        self.atualizar_destaque_menu("resinas") # Lembre de ajustar essa função auxiliar se ela checar nomes
-        self.limpar_area_principal()
-
-        # Cabeçalho
-        header = ctk.CTkFrame(self.main_frame, fg_color="transparent")
-        header.pack(fill="x", pady=(0, 10))
-        ctk.CTkLabel(header, text="Estoque de Resinas", font=("Roboto", 28, "bold")).pack(side="left")
-        ctk.CTkButton(header, text="+ Adicionar Resina", command=self.abrir_adicionar_resina, fg_color="#2ecc71").pack(side="right")
-
-        # Cabeçalho da Tabela
-        cols_config = [("ID", 40), ("Marca", 150), ("Tipo/Resina", 150), ("Cor", 100), ("Volume (ml)", 100), ("Ações", 50)]
-        
-        header_frame = ctk.CTkFrame(self.main_frame, fg_color="#1a1a1a", height=40)
-        header_frame.pack(fill="x", padx=5)
-        for nome, largura in cols_config:
-            ctk.CTkLabel(header_frame, text=nome, width=largura, font=("Roboto", 12, "bold"), anchor="w").pack(side="left", padx=5)
-
-        # Área de Rolagem
-        self.scroll_resinas = ctk.CTkScrollableFrame(self.main_frame, fg_color="transparent")
-        self.scroll_resinas.pack(fill="both", expand=True)
-
-        self.carregar_lista_resinas()
-
-    def carregar_lista_resinas(self):
-        for widget in self.scroll_resinas.winfo_children(): widget.destroy()
-
-        resinas = self.db.buscar_resinas()
-        
-        if not resinas:
-            ctk.CTkLabel(self.scroll_resinas, text="Nenhuma resina cadastrada.", text_color="gray").pack(pady=20)
-            return
-
-        for item in resinas:
-            id_bd, marca, tipo, cor, vol, obs = item
-            
-            row = ctk.CTkFrame(self.scroll_resinas, fg_color="#2b2b2b", height=40)
-            row.pack(fill="x", pady=2, padx=5)
-
-            ctk.CTkLabel(row, text=str(id_bd), width=40, anchor="w").pack(side="left", padx=5)
-            ctk.CTkLabel(row, text=marca, width=150, anchor="w").pack(side="left", padx=5)
-            ctk.CTkLabel(row, text=tipo, width=150, anchor="w").pack(side="left", padx=5)
-            ctk.CTkLabel(row, text=cor, width=100, anchor="w").pack(side="left", padx=5)
-            
-            # Volume com cor de alerta se estiver acabando
-            cor_vol = "#e74c3c" if vol < 100 else "white"
-            ctk.CTkLabel(row, text=f"{vol} ml", width=100, anchor="w", text_color=cor_vol).pack(side="left", padx=5)
-
-            # Botão Excluir
-            ctk.CTkButton(row, text="🗑️", width=40, fg_color="#c0392b", hover_color="#e74c3c",
-                          command=lambda i=id_bd: self.deletar_resina(i)).pack(side="left", padx=5)
-
-    def deletar_resina(self, id_resina):
-        if messagebox.askyesno("Confirmar", "Excluir esta resina do estoque?"):
-            self.db.remover_resina(id_resina)
-            self.carregar_lista_resinas()    
+                      command=win.destroy).pack(pady=5)  
 
 
     def show_detalhes_impressora(self, codigo_interno, nome_exibicao):
